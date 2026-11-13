@@ -1,0 +1,634 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>💃 ¡A Bailar! – Academia de Danza</title>
+<style>
+  :root {
+    font-family: "Comic Sans MS", "Segoe UI", system-ui, sans-serif;
+    background: #2a1a3e;
+    color: #fff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    min-height: 100vh;
+    background: linear-gradient(160deg, #3b2359 0%, #2a1a3e 55%, #1f1230 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 14px;
+  }
+  .app {
+    width: 100%;
+    max-width: 980px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  header h1 {
+    font-size: 26px;
+    background: linear-gradient(90deg, #ffd1ec, #ffe9a8);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    text-shadow: none;
+  }
+  header p { font-size: 13px; color: #d8c7f0; }
+  .hud { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .badge {
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.2);
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+  .badge strong { color: #ffe9a8; }
+  .modes { display: flex; gap: 8px; }
+  .mode-btn {
+    border: 1px solid rgba(255,255,255,0.25);
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    padding: 7px 12px;
+    border-radius: 999px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all .2s;
+    font-family: inherit;
+  }
+  .mode-btn.active { background: #ec4899; border-color: #ec4899; }
+  .mode-btn:hover { transform: translateY(-1px); }
+
+  .layout { display: flex; gap: 12px; align-items: stretch; }
+  .stage {
+    flex: 1;
+    min-width: 0;
+    position: relative;
+    border-radius: 18px;
+    overflow: hidden;
+    border: 2px solid rgba(255, 209, 236, 0.35);
+    background: radial-gradient(ellipse at 50% 30%, #6d4a9e 0%, #4b2f73 45%, #33204f 100%);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+  }
+  .curtain {
+    position: absolute; top: 0; bottom: 0; width: 58px;
+    background:
+      repeating-linear-gradient(90deg, #b8306f 0 14px, #97265a 14px 28px);
+  }
+  .curtain.left { left: 0; border-right: 3px solid #ffd1ec; }
+  .curtain.right { right: 0; border-left: 3px solid #ffd1ec; }
+  .curtain::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0.25), transparent 30%, transparent 70%, rgba(0,0,0,0.35));
+  }
+  .spotlight {
+    position: absolute; left: 50%; top: 8%; width: 75%; height: 90%;
+    transform: translateX(-50%);
+    background: radial-gradient(ellipse at 50% 22%, rgba(255,240,200,0.5) 0%, rgba(255,240,200,0.12) 40%, transparent 70%);
+    pointer-events: none;
+  }
+  .floor {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 15%;
+    background: linear-gradient(180deg, #8a5a3b, #6d4529);
+  }
+  .floor::after {
+    content: ""; position: absolute; inset: 0;
+    background: repeating-linear-gradient(90deg, transparent 0 46px, rgba(0,0,0,0.25) 46px 48px);
+  }
+  svg#scene { position: relative; width: 100%; height: auto; display: block; }
+
+  .sparkle {
+    position: absolute;
+    font-size: 22px;
+    pointer-events: none;
+    animation: floatUp 1.25s ease-out forwards;
+    z-index: 5;
+  }
+  @keyframes floatUp {
+    0% { opacity: 0; transform: translateY(0) scale(0.6) rotate(0deg); }
+    15% { opacity: 1; }
+    100% { opacity: 0; transform: translateY(-130px) scale(1.25) rotate(25deg); }
+  }
+
+  .panel {
+    width: 250px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .panel h2 { font-size: 15px; color: #ffd1ec; text-align: center; }
+  .moves { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .move-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 10px 4px;
+    border-radius: 14px;
+    border: 1.5px solid rgba(255, 209, 236, 0.4);
+    background: rgba(255,255,255,0.09);
+    color: #fff;
+    cursor: pointer;
+    transition: transform .15s, background .15s, box-shadow .15s;
+    font-family: inherit;
+  }
+  .move-btn .emo { font-size: 24px; line-height: 1; }
+  .move-btn .nm { font-size: 12px; font-weight: 700; }
+  .move-btn .sub { font-size: 10px; color: #d8c7f0; }
+  .move-btn:hover { background: rgba(255,255,255,0.18); transform: translateY(-2px); }
+  .move-btn:active { transform: scale(0.94); }
+  .move-btn.active {
+    background: linear-gradient(135deg, #ec4899, #a855f7);
+    border-color: #ffd1ec;
+    box-shadow: 0 4px 18px rgba(236,72,153,0.55);
+  }
+  .move-btn.shake { animation: shake .35s; background: #7f1d3a; }
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+  }
+
+  .clase-box {
+    border: 1.5px dashed rgba(255,209,236,0.5);
+    border-radius: 14px;
+    padding: 10px;
+    text-align: center;
+    font-size: 13px;
+    display: none;
+  }
+  .clase-box .target { font-size: 16px; font-weight: 700; margin: 4px 0; color: #ffe9a8; }
+  .bar {
+    height: 10px; border-radius: 999px; background: rgba(255,255,255,0.15);
+    overflow: hidden; margin-top: 8px;
+  }
+  .bar > div {
+    height: 100%; width: 100%;
+    background: linear-gradient(90deg, #f472b6, #ffd1ec);
+    border-radius: 999px;
+  }
+  .clase-box .seq { margin-top: 6px; font-size: 11px; color: #d8c7f0; }
+
+  .overlay {
+    position: absolute; inset: 0;
+    background: rgba(31,18,48,0.82);
+    display: none;
+    flex-direction: column; align-items: center; justify-content: center;
+    gap: 12px; text-align: center; z-index: 10; border-radius: 16px;
+    padding: 20px;
+  }
+  .overlay.show { display: flex; }
+  .overlay .stars { font-size: 42px; letter-spacing: 6px; }
+  .overlay h2 { font-size: 24px; color: #ffd1ec; }
+  .overlay p { color: #ffe9a8; font-size: 16px; }
+
+  footer { text-align: center; font-size: 12px; color: #b9a6d8; }
+
+  @media (max-width: 760px) {
+    .layout { flex-direction: column; }
+    .panel { width: 100%; }
+    .moves { grid-template-columns: repeat(4, 1fr); }
+  }
+  @media (max-width: 460px) {
+    .moves { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div>
+      <h1>💃 ¡A Bailar! – Academia de Danza</h1>
+      <p>Ayuda a Lucía a practicar danza clásica ✨</p>
+    </div>
+    <div class="hud">
+      <span class="badge" id="scoreBadge" style="display:none">⭐ Puntos: <strong>0</strong></span>
+      <span class="badge" id="streakBadge" style="display:none">🔥 Racha: <strong>0</strong></span>
+      <div class="modes">
+        <button class="mode-btn active" id="btnLibre">🩰 Baile libre</button>
+        <button class="mode-btn" id="btnClase">🎵 Sigue la clase</button>
+        <button class="mode-btn" id="btnSound" title="Sonido">🔊</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="layout">
+    <div class="stage" id="stage">
+      <div class="curtain left"></div>
+      <div class="curtain right"></div>
+      <div class="spotlight"></div>
+      <div class="floor"></div>
+      <svg id="scene" viewBox="0 0 400 540" xmlns="http://www.w3.org/2000/svg">
+        <ellipse id="shadow" cx="200" cy="502" rx="55" ry="9" fill="rgba(0,0,0,0.35)"/>
+        <g transform="translate(200,330)">
+          <g id="gLift">
+            <g id="gSpin">
+              <!-- pierna izquierda (atrás) -->
+              <g transform="translate(-12,4)">
+                <g id="gLL1">
+                  <line x1="0" y1="0" x2="0" y2="75" stroke="#FFDFC4" stroke-width="15" stroke-linecap="round"/>
+                  <g transform="translate(0,75)">
+                    <g id="gLL2">
+                      <line x1="0" y1="0" x2="0" y2="60" stroke="#FFDFC4" stroke-width="13" stroke-linecap="round"/>
+                      <path d="M -4 58 L -4 70 L 12 68 Q 16 64 10 60 Z" fill="#F9A8D4" stroke="#EC4899" stroke-width="1.5"/>
+                    </g>
+                  </g>
+                </g>
+              </g>
+              <!-- brazo izquierdo (atrás) -->
+              <g transform="translate(-26,-95)">
+                <g id="gAL1">
+                  <line x1="0" y1="0" x2="0" y2="48" stroke="#FFDFC4" stroke-width="12" stroke-linecap="round"/>
+                  <g transform="translate(0,48)">
+                    <g id="gAL2">
+                      <line x1="0" y1="0" x2="0" y2="42" stroke="#FFDFC4" stroke-width="11" stroke-linecap="round"/>
+                      <circle cx="0" cy="44" r="6" fill="#FFDFC4"/>
+                    </g>
+                  </g>
+                </g>
+              </g>
+              <!-- torso -->
+              <g id="gTorso">
+                <line x1="0" y1="-8" x2="0" y2="-112" stroke="#F472B6" stroke-width="26" stroke-linecap="round"/>
+                <path d="M -20 -95 Q 0 -108 20 -95 L 14 -30 Q 0 -20 -14 -30 Z" fill="#EC4899"/>
+                <line x1="0" y1="-105" x2="0" y2="-118" stroke="#FFDFC4" stroke-width="10" stroke-linecap="round"/>
+                <!-- tutú -->
+                <g id="gTutu">
+                  <ellipse cx="0" cy="2" rx="52" ry="15" fill="#FBCFE8" opacity="0.95"/>
+                  <ellipse cx="0" cy="-6" rx="40" ry="12" fill="#F9A8D4"/>
+                  <ellipse cx="0" cy="8" rx="56" ry="11" fill="#FBCFE8" opacity="0.7"/>
+                </g>
+                <!-- cabeza -->
+                <g transform="translate(0,-118)">
+                  <g id="gHead">
+                    <circle cx="0" cy="-30" r="24" fill="#FFDFC4"/>
+                    <path d="M -24 -32 A 24 24 0 0 1 24 -32 Q 20 -44 0 -46 Q -20 -44 -24 -32 Z" fill="#FCD34D"/>
+                    <path d="M -24 -30 Q -26 -16 -20 -12 Q -24 -24 -22 -30 Z" fill="#FCD34D"/>
+                    <path d="M 24 -30 Q 26 -16 20 -12 Q 24 -24 22 -30 Z" fill="#FCD34D"/>
+                    <circle cx="0" cy="-62" r="13" fill="#FCD34D" stroke="#F59E0B" stroke-width="2"/>
+                    <path d="M -12 -60 Q 0 -68 12 -60" stroke="#EC4899" stroke-width="3" fill="none"/>
+                    <!-- ojos -->
+                    <circle cx="-9" cy="-30" r="2.6" fill="#3b2359"/>
+                    <circle cx="9" cy="-30" r="2.6" fill="#3b2359"/>
+                    <!-- gafas -->
+                    <g stroke="#5B21B6" stroke-width="2" fill="rgba(255,255,255,0.25)">
+                      <circle cx="-9" cy="-30" r="8"/>
+                      <circle cx="9" cy="-30" r="8"/>
+                      <line x1="-1" y1="-30" x2="1" y2="-30" fill="none"/>
+                      <line x1="-17" y1="-30" x2="-24" y2="-33" fill="none"/>
+                      <line x1="17" y1="-30" x2="24" y2="-33" fill="none"/>
+                    </g>
+                    <path d="M -6 -20 Q 0 -16 6 -20" stroke="#3b2359" stroke-width="2" fill="none" stroke-linecap="round"/>
+                    <circle cx="-16" cy="-22" r="3" fill="#FFB4C0" opacity="0.7"/>
+                    <circle cx="16" cy="-22" r="3" fill="#FFB4C0" opacity="0.7"/>
+                  </g>
+                </g>
+                <!-- diadema flor -->
+                <circle cx="14" cy="-136" r="4" fill="#fff" stroke="#EC4899" stroke-width="1.5"/>
+              </g>
+              <!-- pierna derecha (delante) -->
+              <g transform="translate(12,4)">
+                <g id="gLR1">
+                  <line x1="0" y1="0" x2="0" y2="75" stroke="#FFDFC4" stroke-width="15" stroke-linecap="round"/>
+                  <g transform="translate(0,75)">
+                    <g id="gLR2">
+                      <line x1="0" y1="0" x2="0" y2="60" stroke="#FFDFC4" stroke-width="13" stroke-linecap="round"/>
+                      <path d="M -4 58 L -4 70 L -12 68 Q -16 64 -10 60 Z" fill="#F9A8D4" stroke="#EC4899" stroke-width="1.5"/>
+                    </g>
+                  </g>
+                </g>
+              </g>
+              <!-- brazo derecho (delante) -->
+              <g transform="translate(26,-95)">
+                <g id="gAR1">
+                  <line x1="0" y1="0" x2="0" y2="48" stroke="#FFDFC4" stroke-width="12" stroke-linecap="round"/>
+                  <g transform="translate(0,48)">
+                    <g id="gAR2">
+                      <line x1="0" y1="0" x2="0" y2="42" stroke="#FFDFC4" stroke-width="11" stroke-linecap="round"/>
+                      <circle cx="0" cy="44" r="6" fill="#FFDFC4"/>
+                    </g>
+                  </g>
+                </g>
+              </g>
+            </g>
+          </g>
+        </g>
+      </svg>
+      <div class="overlay" id="overlay">
+        <div class="stars" id="ovStars">⭐⭐⭐</div>
+        <h2 id="ovTitle">🎉 ¡Clase completada!</h2>
+        <p id="ovText">Puntuación: 100 / 100</p>
+        <button class="mode-btn" id="ovRestart">🔁 Repetir clase</button>
+      </div>
+    </div>
+
+    <aside class="panel">
+      <h2>✨ Movimientos de danza ✨</h2>
+      <div class="clase-box" id="claseBox">
+        <div>¡Haz el movimiento que dice la profe!</div>
+        <div class="target" id="target">▶ ¡Listas!</div>
+        <div class="bar"><div id="timerBar"></div></div>
+        <div class="seq" id="seqInfo">Movimiento 1 de 10</div>
+      </div>
+      <div class="moves" id="moves"></div>
+    </aside>
+  </div>
+
+  <footer>Hecho con ❤️ para pequeñas bailarinas · pulsa los botones y Lucía bailará 🩰</footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------- poses ---------- */
+  var POSES = {
+    reposo:     { torso: 0,   head: 0,   aL1: 18,  aL2: 45,  aR1: -18,  aR2: -45, lL1: 14, lL2: -8, lR1: -14, lR2: 8,   lift: 0,   spin: 0 },
+    plie:       { torso: 0,   head: 0,   aL1: 55,  aL2: 65,  aR1: -55,  aR2: -65, lL1: 38, lL2: -38, lR1: -38, lR2: 38,  lift: 16,  spin: 0 },
+    tendu:      { torso: -4,  head: 4,   aL1: 88,  aL2: 5,   aR1: -25,  aR2: -55, lL1: 8,  lL2: 0,  lR1: -80, lR2: 0,   lift: 0,   spin: 0 },
+    releve:     { torso: 0,   head: -5,  aL1: 165, aL2: 12,  aR1: -165, aR2: -12, lL1: 6,  lL2: 0,  lR1: -6,  lR2: 0,   lift: -10, spin: 0 },
+    arabesque:  { torso: 16,  head: -8,  aL1: 150, aL2: 20,  aR1: -95,  aR2: -10, lL1: 95, lL2: 0,  lR1: -6,  lR2: 0,   lift: -4,  spin: 0 },
+    pirueta:    { torso: 0,   head: -4,  aL1: 140, aL2: 35,  aR1: -140, aR2: -35, lL1: 5,  lL2: 0,  lR1: -150, lR2: 60,  lift: -6,  spin: 360 },
+    jete:       { torso: -6,  head: 6,   aL1: 100, aL2: 0,   aR1: -100, aR2: 0,   lL1: 75, lL2: 0,  lR1: -70, lR2: 0,   lift: -55, spin: 0 },
+    portdebras: { torso: 5,   head: -10, aL1: 172, aL2: 15,  aR1: -172, aR2: -15, lL1: 10, lL2: 0,  lR1: -10, lR2: 0,   lift: 0,   spin: 0 },
+    cambre:     { torso: -18, head: -14, aL1: 178, aL2: 8,   aR1: -178, aR2: -8,  lL1: 8,  lL2: 0,  lR1: -8,  lR2: 0,   lift: 0,   spin: 0 }
+  };
+
+  var MOVES = [
+    { id: "plie",       emo: "🦵", nm: "Plié",        sub: "flexión",      note: 392 },
+    { id: "tendu",      emo: "➡️", nm: "Tendu",       sub: "punta al lado", note: 440 },
+    { id: "releve",     emo: "⬆️", nm: "Relevé",      sub: "de puntillas", note: 523 },
+    { id: "arabesque",  emo: "🦢", nm: "Arabesque",   sub: "línea elegante", note: 587 },
+    { id: "pirueta",    emo: "🌀", nm: "Pirueta",     sub: "giro",         note: 659 },
+    { id: "jete",       emo: "✨", nm: "Grand Jeté",  sub: "gran salto",   note: 784 },
+    { id: "portdebras", emo: "💫", nm: "Port de Bras", sub: "brazos al cielo", note: 880 },
+    { id: "cambre",     emo: "🌙", nm: "Cambré",      sub: "arco atrás",   note: 698 }
+  ];
+
+  var $ = function (id) { return document.getElementById(id); };
+  var g = {
+    lift: $("gLift"), spin: $("gSpin"), torso: $("gTorso"), head: $("gHead"),
+    aL1: $("gAL1"), aL2: $("gAL2"), aR1: $("gAR1"), aR2: $("gAR2"),
+    lL1: $("gLL1"), lL2: $("gLL2"), lR1: $("gLR1"), lR2: $("gLR2"),
+    shadow: $("shadow")
+  };
+
+  /* ---------- tween ---------- */
+  var KEYS = ["torso","head","aL1","aL2","aR1","aR2","lL1","lL2","lR1","lR2","lift","spin"];
+  var current = Object.assign({}, POSES.reposo);
+  var queue = [];            // { to, dur, ease, then }
+  var tw = null;             // tween activo
+  var lastTime = null;
+
+  function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+  function easeInOutQuad(t) { return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; }
+  function easeInQuad(t) { return t * t; }
+
+  function render(now) {
+    var idle = Math.sin(now / 900) * 2.2;
+    var lift = current.lift + idle;
+    g.lift.setAttribute("transform", "translate(0 " + lift.toFixed(2) + ")");
+    g.spin.setAttribute("transform", "rotate(" + (current.spin % 360).toFixed(2) + ")");
+    g.torso.setAttribute("transform", "rotate(" + current.torso.toFixed(2) + ")");
+    g.head.setAttribute("transform", "rotate(" + current.head.toFixed(2) + ")");
+    g.aL1.setAttribute("transform", "rotate(" + current.aL1.toFixed(2) + ")");
+    g.aL2.setAttribute("transform", "rotate(" + current.aL2.toFixed(2) + ")");
+    g.aR1.setAttribute("transform", "rotate(" + current.aR1.toFixed(2) + ")");
+    g.aR2.setAttribute("transform", "rotate(" + current.aR2.toFixed(2) + ")");
+    g.lL1.setAttribute("transform", "rotate(" + current.lL1.toFixed(2) + ")");
+    g.lL2.setAttribute("transform", "rotate(" + current.lL2.toFixed(2) + ")");
+    g.lR1.setAttribute("transform", "rotate(" + current.lR1.toFixed(2) + ")");
+    g.lR2.setAttribute("transform", "rotate(" + current.lR2.toFixed(2) + ")");
+    var k = Math.max(0.35, 1 + lift / 160);
+    g.shadow.setAttribute("rx", (55 * k).toFixed(1));
+    g.shadow.setAttribute("opacity", String(Math.max(0.12, 0.35 * k)));
+  }
+
+  function frame(now) {
+    if (lastTime == null) lastTime = now;
+    var dt = now - lastTime;
+    lastTime = now;
+    if (!tw && queue.length) {
+      tw = queue.shift();
+      tw.from = Object.assign({}, current);
+      tw.start = now;
+    }
+    if (tw) {
+      var p = Math.min(1, (now - tw.start) / tw.dur);
+      var e = tw.ease(p);
+      KEYS.forEach(function (k) {
+        current[k] = tw.from[k] + (tw.to[k] - tw.from[k]) * e;
+      });
+      if (p >= 1) {
+        KEYS.forEach(function (k) { current[k] = tw.to[k]; });
+        current.spin = current.spin % 360;
+        var then = tw.then; tw = null;
+        if (then) then();
+      }
+    }
+    render(now);
+    tickClase(now, dt);
+    requestAnimationFrame(frame);
+  }
+
+  function goTo(poseId, opts) {
+    opts = opts || {};
+    var ease = opts.ease || easeOutCubic;
+    var dur = opts.dur || 520;
+    queue.length = 0; tw = null;
+    queue.push({ to: POSES[poseId], dur: dur, ease: ease, then: opts.then });
+  }
+
+  requestAnimationFrame(frame);
+
+  /* ---------- sonido ---------- */
+  var audioCtx = null, soundOn = true;
+  function tone(freq, dur, delay) {
+    if (!soundOn) return;
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      var t0 = audioCtx.currentTime + (delay || 0);
+      var o = audioCtx.createOscillator();
+      var gain = audioCtx.createGain();
+      o.type = "sine";
+      o.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, t0);
+      gain.gain.exponentialRampToValueAtTime(0.22, t0 + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + (dur || 0.25));
+      o.connect(gain); gain.connect(audioCtx.destination);
+      o.start(t0); o.stop(t0 + (dur || 0.25) + 0.05);
+    } catch (e) { /* sin audio */ }
+  }
+  function successChime() { tone(523, 0.15); tone(784, 0.2, 0.1); }
+  function failBuzz() { tone(180, 0.25); }
+
+  /* ---------- sparkles ---------- */
+  function sparkle(emo, n) {
+    var stage = $("stage");
+    for (var i = 0; i < (n || 5); i++) {
+      var s = document.createElement("span");
+      s.className = "sparkle";
+      s.textContent = emo;
+      s.style.left = (42 + Math.random() * 16) + "%";
+      s.style.top = (45 + Math.random() * 25) + "%";
+      s.style.animationDelay = (Math.random() * 0.25) + "s";
+      stage.appendChild(s);
+      s.addEventListener("animationend", function () { this.remove(); });
+    }
+  }
+
+  /* ---------- botones ---------- */
+  var activeBtn = null;
+  var movesEl = $("moves");
+  MOVES.forEach(function (m) {
+    var b = document.createElement("button");
+    b.className = "move-btn";
+    b.dataset.id = m.id;
+    b.innerHTML = '<span class="emo">' + m.emo + '</span><span class="nm">' + m.nm +
+      '</span><span class="sub">' + m.sub + "</span>";
+    b.addEventListener("click", function () { pressMove(m, b); });
+    movesEl.appendChild(b);
+  });
+
+  function pressMove(m, b) {
+    if (activeBtn) activeBtn.classList.remove("active");
+    activeBtn = b;
+    b.classList.add("active");
+    if (m.id === "pirueta") {
+      goTo("pirueta", { dur: 850, ease: easeInOutQuad });
+    } else if (m.id === "jete") {
+      goTo("jete", { dur: 420, ease: easeOutCubic, then: function () {
+        goTo("reposo", { dur: 380, ease: easeInQuad });
+      }});
+    } else {
+      goTo(m.id, { dur: 520 });
+    }
+    tone(m.note, 0.22);
+    sparkle("✨", 4);
+    if (mode === "clase") judgeMove(m.id, b);
+  }
+
+  /* ---------- modos ---------- */
+  var mode = "libre";
+  var btnLibre = $("btnLibre"), btnClase = $("btnClase"), btnSound = $("btnSound");
+  btnLibre.addEventListener("click", function () { setMode("libre"); });
+  btnClase.addEventListener("click", function () { setMode("clase"); });
+  btnSound.addEventListener("click", function () {
+    soundOn = !soundOn;
+    btnSound.textContent = soundOn ? "🔊" : "🔇";
+  });
+
+  function setMode(m) {
+    mode = m;
+    btnLibre.classList.toggle("active", m === "libre");
+    btnClase.classList.toggle("active", m === "clase");
+    var clase = m === "clase";
+    $("claseBox").style.display = clase ? "block" : "none";
+    $("scoreBadge").style.display = clase ? "inline" : "none";
+    $("streakBadge").style.display = clase ? "inline" : "none";
+    $("overlay").classList.remove("show");
+    if (clase) startClase(); else goTo("reposo");
+  }
+
+  /* ---------- clase coreografía ---------- */
+  var clase = { seq: [], idx: 0, score: 0, streak: 0, deadline: 0, per: 3200, waiting: false };
+  var TOTAL = 10;
+
+  function startClase() {
+    clase.seq = [];
+    for (var i = 0; i < TOTAL; i++) clase.seq.push(MOVES[Math.floor(Math.random() * MOVES.length)].id);
+    clase.idx = 0; clase.score = 0; clase.streak = 0; clase.per = 3200;
+    updateHUD();
+    nextMove();
+  }
+
+  function nextMove() {
+    clase.waiting = true;
+    clase.deadline = performance.now() + clase.per;
+    clase.per = Math.max(1500, clase.per - 120);
+    var m = MOVES.filter(function (x) { return x.id === clase.seq[clase.idx]; })[0];
+    $("target").innerHTML = m.emo + " " + m.nm;
+    $("seqInfo").textContent = "Movimiento " + (clase.idx + 1) + " de " + TOTAL;
+  }
+
+  function judgeMove(id, btn) {
+    if (!clase.waiting) return;
+    clase.waiting = false;
+    var target = clase.seq[clase.idx];
+    if (id === target) {
+      clase.streak++;
+      var pts = 10 + Math.min(10, clase.streak * 2);
+      clase.score += pts;
+      successChime();
+      sparkle("🎵", 6);
+      $("target").innerHTML = "✔ ¡Muy bien, Lucía!";
+    } else {
+      clase.streak = 0;
+      failBuzz();
+      btn.classList.add("shake");
+      setTimeout(function () { btn.classList.remove("shake"); }, 400);
+      $("target").innerHTML = "✖ ¡Casi! Era: " + label(target);
+    }
+    updateHUD();
+    advance();
+  }
+
+  function label(id) {
+    var m = MOVES.filter(function (x) { return x.id === id; })[0];
+    return m.emo + " " + m.nm;
+  }
+
+  function advance() {
+    clase.idx++;
+    if (clase.idx >= TOTAL) { endClase(); return; }
+    setTimeout(nextMove, 800);
+  }
+
+  function endClase() {
+    var stars = clase.score >= 110 ? "⭐⭐⭐" : clase.score >= 70 ? "⭐⭐" : "⭐";
+    $("ovStars").textContent = stars;
+    $("ovText").textContent = "Puntuación: " + clase.score + " / 120";
+    $("overlay").classList.add("show");
+    goTo("releve", { dur: 600, then: function () {
+      goTo("reposo", { dur: 500 });
+    }});
+    sparkle("🎉", 8);
+    successChime(); successChime();
+  }
+
+  function tickClase(now, dt) {
+    if (mode !== "clase" || !clase.waiting) return;
+    var left = clase.deadline - now;
+    var bar = $("timerBar");
+    bar.style.width = Math.max(0, (left / clase.per) * 100) + "%";
+    if (left <= 0) {
+      clase.waiting = false;
+      clase.streak = 0;
+      failBuzz();
+      $("target").innerHTML = "⏰ ¡Tarde! Era: " + label(clase.seq[clase.idx]);
+      updateHUD();
+      advance();
+    }
+  }
+
+  function updateHUD() {
+    $("scoreBadge").querySelector("strong").textContent = clase.score;
+    $("streakBadge").querySelector("strong").textContent = clase.streak;
+  }
+
+  $("ovRestart").addEventListener("click", function () {
+    $("overlay").classList.remove("show");
+    startClase();
+  });
+})();
+</script>
+</body>
+</html>
