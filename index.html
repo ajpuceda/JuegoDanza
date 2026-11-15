@@ -52,7 +52,7 @@
     white-space: nowrap;
   }
   .badge strong { color: #ffe9a8; }
-  .modes { display: flex; gap: 8px; }
+  .modes { display: flex; gap: 8px; flex-wrap: wrap; }
   .mode-btn {
     border: 1px solid rgba(255,255,255,0.25);
     background: rgba(255,255,255,0.08);
@@ -103,7 +103,7 @@
     content: ""; position: absolute; inset: 0;
     background: repeating-linear-gradient(90deg, transparent 0 46px, rgba(0,0,0,0.25) 46px 48px);
   }
-  svg#scene { position: relative; width: 100%; height: auto; display: block; }
+  svg#scene { position: relative; width: 100%; height: auto; display: block; touch-action: none; }
 
   .sparkle {
     position: absolute;
@@ -117,6 +117,14 @@
     15% { opacity: 1; }
     100% { opacity: 0; transform: translateY(-130px) scale(1.25) rotate(25deg); }
   }
+
+  .handle {
+    fill: rgba(255,255,255,0.35);
+    stroke: #ffd1ec;
+    stroke-width: 2;
+    cursor: grab;
+  }
+  .handle:active { cursor: grabbing; fill: rgba(255,209,236,0.8); }
 
   .panel {
     width: 250px;
@@ -177,6 +185,17 @@
   }
   .clase-box .seq { margin-top: 6px; font-size: 11px; color: #d8c7f0; }
 
+  .hint-box {
+    border: 1.5px dashed rgba(255,209,236,0.5);
+    border-radius: 14px;
+    padding: 10px;
+    text-align: center;
+    font-size: 12px;
+    color: #ffd1ec;
+    display: none;
+    line-height: 1.5;
+  }
+
   .overlay {
     position: absolute; inset: 0;
     background: rgba(31,18,48,0.82);
@@ -214,6 +233,7 @@
       <span class="badge" id="streakBadge" style="display:none">🔥 Racha: <strong>0</strong></span>
       <div class="modes">
         <button class="mode-btn active" id="btnLibre">🩰 Baile libre</button>
+        <button class="mode-btn" id="btnPuppet">✋ Mueve a Lucía</button>
         <button class="mode-btn" id="btnClase">🎵 Sigue la clase</button>
         <button class="mode-btn" id="btnSound" title="Sonido">🔊</button>
       </div>
@@ -238,7 +258,7 @@
                   <g transform="translate(0,75)">
                     <g id="gLL2">
                       <line x1="0" y1="0" x2="0" y2="60" stroke="#FFDFC4" stroke-width="13" stroke-linecap="round"/>
-                      <path d="M -4 58 L -4 70 L 12 68 Q 16 64 10 60 Z" fill="#F9A8D4" stroke="#EC4899" stroke-width="1.5"/>
+                      <path d="M 4 58 L 4 70 L -12 68 Q -16 64 -10 60 Z" fill="#F9A8D4" stroke="#EC4899" stroke-width="1.5"/>
                     </g>
                   </g>
                 </g>
@@ -301,7 +321,7 @@
                   <g transform="translate(0,75)">
                     <g id="gLR2">
                       <line x1="0" y1="0" x2="0" y2="60" stroke="#FFDFC4" stroke-width="13" stroke-linecap="round"/>
-                      <path d="M -4 58 L -4 70 L -12 68 Q -16 64 -10 60 Z" fill="#F9A8D4" stroke="#EC4899" stroke-width="1.5"/>
+                      <path d="M 4 58 L 4 70 L 12 68 Q 16 64 10 60 Z" fill="#F9A8D4" stroke="#EC4899" stroke-width="1.5"/>
                     </g>
                   </g>
                 </g>
@@ -317,6 +337,16 @@
                     </g>
                   </g>
                 </g>
+              </g>
+              <!-- puntos para mover a Lucía -->
+              <g id="gHandles" style="display:none">
+                <circle class="handle" id="hLhand" r="11"/>
+                <circle class="handle" id="hRhand" r="11"/>
+                <circle class="handle" id="hLfoot" r="11"/>
+                <circle class="handle" id="hRfoot" r="11"/>
+                <circle class="handle" id="hHead" r="10"/>
+                <circle class="handle" id="hTorso" r="9"/>
+                <circle class="handle" id="hBody" r="9"/>
               </g>
             </g>
           </g>
@@ -338,26 +368,43 @@
         <div class="bar"><div id="timerBar"></div></div>
         <div class="seq" id="seqInfo">Movimiento 1 de 10</div>
       </div>
+      <div class="hint-box" id="hintBox">
+        🖐️ Arrastra los puntitos para mover a Lucía:<br />
+        <b>manos, pies, cabeza, pecho y cuerpo</b>.<br />
+        ¡Tú eres el coreógrafo! Los botones también funcionan.
+      </div>
       <div class="moves" id="moves"></div>
     </aside>
   </div>
 
-  <footer>Hecho con ❤️ para pequeñas bailarinas · pulsa los botones y Lucía bailará 🩰</footer>
+  <footer>Hecho con ❤️ para pequeñas bailarinas · botones o manos… ¡Lucía siempre baila! 🩰</footer>
 </div>
 
 <script>
 (function () {
   "use strict";
 
+  /* ---------- utilidades ---------- */
+  var RAD = Math.PI / 180;
+  function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+  function rot(p, deg) {
+    var a = deg * RAD, c = Math.cos(a), s = Math.sin(a);
+    return { x: p.x * c - p.y * s, y: p.x * s + p.y * c };
+  }
+  function add(a, b) { return { x: a.x + b.x, y: a.y + b.y }; }
+  function dirv(deg, len) {
+    return { x: -Math.sin(deg * RAD) * len, y: Math.cos(deg * RAD) * len };
+  }
+
   /* ---------- poses ---------- */
   var POSES = {
     reposo:     { torso: 0,   head: 0,   aL1: 18,  aL2: 45,  aR1: -18,  aR2: -45, lL1: 14, lL2: -8, lR1: -14, lR2: 8,   lift: 0,   spin: 0 },
-    plie:       { torso: 0,   head: 0,   aL1: 55,  aL2: 65,  aR1: -55,  aR2: -65, lL1: 38, lL2: -38, lR1: -38, lR2: 38,  lift: 16,  spin: 0 },
+    plie:       { torso: 0,   head: 0,   aL1: 62,  aL2: 55,  aR1: -62,  aR2: -55, lL1: 42, lL2: -42, lR1: -42, lR2: 42,  lift: 20,  spin: 0 },
     tendu:      { torso: -4,  head: 4,   aL1: 88,  aL2: 5,   aR1: -25,  aR2: -55, lL1: 8,  lL2: 0,  lR1: -80, lR2: 0,   lift: 0,   spin: 0 },
     releve:     { torso: 0,   head: -5,  aL1: 165, aL2: 12,  aR1: -165, aR2: -12, lL1: 6,  lL2: 0,  lR1: -6,  lR2: 0,   lift: -10, spin: 0 },
-    arabesque:  { torso: 16,  head: -8,  aL1: 150, aL2: 20,  aR1: -95,  aR2: -10, lL1: 95, lL2: 0,  lR1: -6,  lR2: 0,   lift: -4,  spin: 0 },
+    arabesque:  { torso: 22,  head: -12, aL1: 95,  aL2: 10,  aR1: -168, aR2: -15, lL1: 100, lL2: -12, lR1: -6, lR2: 0,  lift: -4,  spin: 0 },
     pirueta:    { torso: 0,   head: -4,  aL1: 140, aL2: 35,  aR1: -140, aR2: -35, lL1: 5,  lL2: 0,  lR1: -150, lR2: 60,  lift: -6,  spin: 360 },
-    jete:       { torso: -6,  head: 6,   aL1: 100, aL2: 0,   aR1: -100, aR2: 0,   lL1: 75, lL2: 0,  lR1: -70, lR2: 0,   lift: -55, spin: 0 },
+    jete:       { torso: -8,  head: 6,   aL1: 110, aL2: 0,   aR1: -110, aR2: 0,   lL1: 85, lL2: -5, lR1: -85, lR2: 5,   lift: -58, spin: 0 },
     portdebras: { torso: 5,   head: -10, aL1: 172, aL2: 15,  aR1: -172, aR2: -15, lL1: 10, lL2: 0,  lR1: -10, lR2: 0,   lift: 0,   spin: 0 },
     cambre:     { torso: -18, head: -14, aL1: 178, aL2: 8,   aR1: -178, aR2: -8,  lL1: 8,  lL2: 0,  lR1: -8,  lR2: 0,   lift: 0,   spin: 0 }
   };
@@ -374,8 +421,10 @@
   ];
 
   var $ = function (id) { return document.getElementById(id); };
+  var scene = $("scene");
   var g = {
     lift: $("gLift"), spin: $("gSpin"), torso: $("gTorso"), head: $("gHead"),
+    tutu: $("gTutu"), handles: $("gHandles"),
     aL1: $("gAL1"), aL2: $("gAL2"), aR1: $("gAR1"), aR2: $("gAR2"),
     lL1: $("gLL1"), lL2: $("gLL2"), lR1: $("gLR1"), lR2: $("gLR2"),
     shadow: $("shadow")
@@ -383,22 +432,31 @@
 
   /* ---------- tween ---------- */
   var KEYS = ["torso","head","aL1","aL2","aR1","aR2","lL1","lL2","lR1","lR2","lift","spin"];
+  var SMOOTH_KEYS = { lift: 1, spin: 1 };
   var current = Object.assign({}, POSES.reposo);
-  var queue = [];            // { to, dur, ease, then }
-  var tw = null;             // tween activo
-  var lastTime = null;
+  var queue = [];
+  var tw = null;
+  var dragging = false;
+  var idleNow = 0;
 
   function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
   function easeInOutQuad(t) { return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; }
   function easeInQuad(t) { return t * t; }
+  /* suave con un poquito de rebote: los movimientos parecen más vivos */
+  function easeSpring(t) {
+    var c = 1.15;
+    return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2);
+  }
 
   function render(now) {
-    var idle = Math.sin(now / 900) * 2.2;
-    var lift = current.lift + idle;
+    idleNow = dragging ? 0 : Math.sin(now / 900) * 2.2;
+    var lift = current.lift + idleNow;
     g.lift.setAttribute("transform", "translate(0 " + lift.toFixed(2) + ")");
     g.spin.setAttribute("transform", "rotate(" + (current.spin % 360).toFixed(2) + ")");
     g.torso.setAttribute("transform", "rotate(" + current.torso.toFixed(2) + ")");
     g.head.setAttribute("transform", "rotate(" + current.head.toFixed(2) + ")");
+    /* el tutú se queda un pelín atrás del torso: movimiento con inercia */
+    g.tutu.setAttribute("transform", "rotate(" + (-current.torso * 0.35).toFixed(2) + ")");
     g.aL1.setAttribute("transform", "rotate(" + current.aL1.toFixed(2) + ")");
     g.aL2.setAttribute("transform", "rotate(" + current.aL2.toFixed(2) + ")");
     g.aR1.setAttribute("transform", "rotate(" + current.aR1.toFixed(2) + ")");
@@ -410,21 +468,21 @@
     var k = Math.max(0.35, 1 + lift / 160);
     g.shadow.setAttribute("rx", (55 * k).toFixed(1));
     g.shadow.setAttribute("opacity", String(Math.max(0.12, 0.35 * k)));
+    updateHandles();
   }
 
   function frame(now) {
-    if (lastTime == null) lastTime = now;
-    var dt = now - lastTime;
-    lastTime = now;
     if (!tw && queue.length) {
       tw = queue.shift();
       tw.from = Object.assign({}, current);
       tw.start = now;
     }
-    if (tw) {
+    if (tw && !dragging) {
       var p = Math.min(1, (now - tw.start) / tw.dur);
-      var e = tw.ease(p);
+      var eRot = tw.ease(p);
+      var eLift = tw.easeLift(p);
       KEYS.forEach(function (k) {
+        var e = SMOOTH_KEYS[k] ? eLift : eRot;
         current[k] = tw.from[k] + (tw.to[k] - tw.from[k]) * e;
       });
       if (p >= 1) {
@@ -435,16 +493,20 @@
       }
     }
     render(now);
-    tickClase(now, dt);
+    tickClase(now);
     requestAnimationFrame(frame);
   }
 
   function goTo(poseId, opts) {
     opts = opts || {};
-    var ease = opts.ease || easeOutCubic;
-    var dur = opts.dur || 520;
     queue.length = 0; tw = null;
-    queue.push({ to: POSES[poseId], dur: dur, ease: ease, then: opts.then });
+    queue.push({
+      to: POSES[poseId],
+      dur: opts.dur || 520,
+      ease: opts.ease || easeSpring,
+      easeLift: opts.easeLift || easeInOutQuad,
+      then: opts.then
+    });
   }
 
   requestAnimationFrame(frame);
@@ -503,10 +565,10 @@
     activeBtn = b;
     b.classList.add("active");
     if (m.id === "pirueta") {
-      goTo("pirueta", { dur: 850, ease: easeInOutQuad });
+      goTo("pirueta", { dur: 800, ease: easeInOutQuad, easeLift: easeInOutQuad });
     } else if (m.id === "jete") {
-      goTo("jete", { dur: 420, ease: easeOutCubic, then: function () {
-        goTo("reposo", { dur: 380, ease: easeInQuad });
+      goTo("jete", { dur: 400, ease: easeSpring, easeLift: easeOutCubic, then: function () {
+        goTo("reposo", { dur: 360, ease: easeSpring, easeLift: easeInQuad });
       }});
     } else {
       goTo(m.id, { dur: 520 });
@@ -516,10 +578,122 @@
     if (mode === "clase") judgeMove(m.id, b);
   }
 
+  /* ---------- mover a Lucía a mano (marioneta) ---------- */
+  var SHOULDER_L = { x: -26, y: -95 }, SHOULDER_R = { x: 26, y: -95 };
+  var HIP_L = { x: -12, y: 4 }, HIP_R = { x: 12, y: 4 };
+  var NECK = { x: 0, y: -118 };
+  var ARM_L1 = 48, ARM_L2 = 46, LEG_L1 = 75, LEG_L2 = 64;
+
+  /* IK de dos huesos: devuelve ángulos {a1, a2} para alcanzar el punto P */
+  function ik(P, S, l1, l2, bend) {
+    var dx = P.x - S.x, dy = P.y - S.y;
+    var d = clamp(Math.hypot(dx, dy), 10, l1 + l2 - 4);
+    var phi = Math.atan2(dy, dx) / RAD;
+    var dir = phi - 90;
+    var cos1 = clamp((l1 * l1 + d * d - l2 * l2) / (2 * l1 * d), -1, 1);
+    var th1 = Math.acos(cos1) / RAD;
+    var a1 = dir + bend * th1;
+    var elbow = add(S, dirv(a1, l1));
+    var phi2 = Math.atan2(P.y - elbow.y, P.x - elbow.x) / RAD;
+    var a2 = (phi2 - 90) - a1;
+    return { a1: a1, a2: a2 };
+  }
+
+  function setHandle(id, p) {
+    $(id).setAttribute("transform", "translate(" + p.x.toFixed(1) + " " + p.y.toFixed(1) + ")");
+  }
+
+  function updateHandles() {
+    if (g.handles.style.display === "none") return;
+    var tA = current.torso;
+    function tf(p) { return rot(p, tA); }
+    var eL = add(SHOULDER_L, dirv(current.aL1, ARM_L1));
+    setHandle("hLhand", tf(add(eL, dirv(current.aL1 + current.aL2, ARM_L2))));
+    var eR = add(SHOULDER_R, dirv(current.aR1, ARM_L1));
+    setHandle("hRhand", tf(add(eR, dirv(current.aR1 + current.aR2, ARM_L2))));
+    var kL = add(HIP_L, dirv(current.lL1, LEG_L1));
+    setHandle("hLfoot", add(kL, dirv(current.lL1 + current.lL2, LEG_L2)));
+    var kR = add(HIP_R, dirv(current.lR1, LEG_L1));
+    setHandle("hRfoot", add(kR, dirv(current.lR1 + current.lR2, LEG_L2)));
+    setHandle("hHead", tf(add(NECK, rot({ x: 0, y: -62 }, current.head))));
+    setHandle("hTorso", tf({ x: 0, y: -92 }));
+    setHandle("hBody", { x: 0, y: 12 });
+  }
+
+  /* punto del ratón en coordenadas de la bailarina (cadera = 0,0) */
+  function pointerPt(e) {
+    var r = scene.getBoundingClientRect();
+    return {
+      x: (e.clientX - r.left) * 400 / r.width - 200,
+      y: (e.clientY - r.top) * 540 / r.height - 330 - current.lift - idleNow
+    };
+  }
+
+  function onHandleMove(type) {
+    return function (e) {
+      if (!dragging) return;
+      e.preventDefault();
+      var P = pointerPt(e);
+      if (type === "handL" || type === "handR") {
+        var S = type === "handL" ? SHOULDER_L : SHOULDER_R;
+        var Pt = rot(P, -current.torso);          /* al marco del torso */
+        var bend = type === "handL" ? -1 : 1;
+        var r = ik(Pt, S, ARM_L1, ARM_L2, bend);
+        if (type === "handL") {
+          current.aL1 = clamp(r.a1, -40, 200);
+          current.aL2 = clamp(r.a2, -30, 160);
+        } else {
+          current.aR1 = clamp(r.a1, -200, 40);
+          current.aR2 = clamp(r.a2, -160, 30);
+        }
+      } else if (type === "footL" || type === "footR") {
+        var H = type === "footL" ? HIP_L : HIP_R;
+        var bendL = type === "footL" ? 1 : -1;
+        var rl = ik(P, H, LEG_L1, LEG_L2, bendL);
+        if (type === "footL") {
+          current.lL1 = clamp(rl.a1, -30, 130);
+          current.lL2 = clamp(rl.a2, -130, 30);
+        } else {
+          current.lR1 = clamp(rl.a1, -130, 30);
+          current.lR2 = clamp(rl.a2, -30, 130);
+        }
+      } else if (type === "head") {
+        var N = rot(NECK, current.torso);
+        var v = add(P, { x: -N.x, y: -N.y });
+        current.head = clamp(Math.atan2(v.y, v.x) / RAD + 90, -28, 28);
+      } else if (type === "torso") {
+        current.torso = clamp(Math.atan2(P.y, P.x) / RAD + 90, -25, 25);
+      } else if (type === "body") {
+        current.lift = clamp(P.y - 12, -120, 24);
+      }
+    };
+  }
+
+  function bindHandle(id, type) {
+    var el = $(id);
+    el.addEventListener("pointerdown", function (e) {
+      e.preventDefault();
+      try { el.setPointerCapture(e.pointerId); } catch (err) {}
+      dragging = true;
+      queue.length = 0; tw = null;      /* la mano manda: paramos la animación */
+      if (activeBtn) { activeBtn.classList.remove("active"); activeBtn = null; }
+    });
+    var mv = onHandleMove(type);
+    el.addEventListener("pointermove", mv);
+    el.addEventListener("pointerup", function () { dragging = false; });
+    el.addEventListener("pointercancel", function () { dragging = false; });
+  }
+  bindHandle("hLhand", "handL"); bindHandle("hRhand", "handR");
+  bindHandle("hLfoot", "footL"); bindHandle("hRfoot", "footR");
+  bindHandle("hHead", "head");
+  bindHandle("hTorso", "torso");
+  bindHandle("hBody", "body");
+
   /* ---------- modos ---------- */
   var mode = "libre";
-  var btnLibre = $("btnLibre"), btnClase = $("btnClase"), btnSound = $("btnSound");
+  var btnLibre = $("btnLibre"), btnPuppet = $("btnPuppet"), btnClase = $("btnClase"), btnSound = $("btnSound");
   btnLibre.addEventListener("click", function () { setMode("libre"); });
+  btnPuppet.addEventListener("click", function () { setMode("puppet"); });
   btnClase.addEventListener("click", function () { setMode("clase"); });
   btnSound.addEventListener("click", function () {
     soundOn = !soundOn;
@@ -528,14 +702,17 @@
 
   function setMode(m) {
     mode = m;
+    dragging = false;
     btnLibre.classList.toggle("active", m === "libre");
+    btnPuppet.classList.toggle("active", m === "puppet");
     btnClase.classList.toggle("active", m === "clase");
-    var clase = m === "clase";
-    $("claseBox").style.display = clase ? "block" : "none";
-    $("scoreBadge").style.display = clase ? "inline" : "none";
-    $("streakBadge").style.display = clase ? "inline" : "none";
+    g.handles.style.display = m === "puppet" ? "block" : "none";
+    $("hintBox").style.display = m === "puppet" ? "block" : "none";
+    $("claseBox").style.display = m === "clase" ? "block" : "none";
+    $("scoreBadge").style.display = m === "clase" ? "inline" : "none";
+    $("streakBadge").style.display = m === "clase" ? "inline" : "none";
     $("overlay").classList.remove("show");
-    if (clase) startClase(); else goTo("reposo");
+    if (m === "clase") startClase(); else goTo("reposo");
   }
 
   /* ---------- clase coreografía ---------- */
@@ -604,7 +781,7 @@
     successChime(); successChime();
   }
 
-  function tickClase(now, dt) {
+  function tickClase(now) {
     if (mode !== "clase" || !clase.waiting) return;
     var left = clase.deadline - now;
     var bar = $("timerBar");
